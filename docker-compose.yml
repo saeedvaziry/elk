@@ -1,0 +1,54 @@
+version: '3'
+
+services:
+  elasticsearch:
+    image: elasticsearch:7.16.2
+    env_file:
+      - .env
+    container_name: elasticsearch
+    restart: always
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.authc.api_key.enabled: "true"
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data/
+    ports:
+      - "${ELASTIC_PORT}:${ELASTIC_PORT}"
+      - "${ELASTIC_PORT_2}:${ELASTIC_PORT_2}"
+
+  logstash:
+    image: logstash:7.16.2
+    env_file:
+      - .env
+    container_name: logstash
+    restart: always
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      xpack.monitoring.elasticsearch.url: "elasticsearch:${ELASTIC_PORT}"
+      xpack.monitoring.elasticsearch.username: "${ELASTIC_USER}"
+      xpack.monitoring.elasticsearch.password: "${ELASTIC_PASSWORD}"
+    volumes:
+      - ./logstash/:/logstash_dir
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    command: logstash -f /logstash_dir/logstash.conf 
+    depends_on:
+      - elasticsearch
+    ports:
+      - "${LOGSTASH_PORT}:${LOGSTASH_PORT}"
+      - "${LOGSTASH_PORT_UDP}:${LOGSTASH_PORT_UDP}/udp"
+  
+  kibana:
+    image: kibana:7.16.2
+    env_file:
+      - .env
+    container_name: kibana
+    restart: always
+    ports:
+      - "${KIBANA_PORT}:${KIBANA_PORT}"
+    depends_on:
+      - elasticsearch  
+
+volumes:
+  elastic_data:
